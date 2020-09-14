@@ -5,9 +5,11 @@ from ECampusParser.ECampusParser import ECampus
 from dotenv import load_dotenv
 from tabulate import tabulate
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import DataSource.api as API
+
+import asyncio
 
 
 HELP = '''\
@@ -29,9 +31,22 @@ Made by Sang-geon Yun(Elliot Yun - https://github.com/c0510gy)
 ```
 '''
 
-
 load_dotenv()
 ecampus = ECampus()
+
+bot = Bot(command_prefix='!')
+bot.remove_command('help')
+
+def getKRTime():
+    utcnow = datetime.utcnow()
+    timeGap = timedelta(hours=9)
+    return utcnow + timeGap
+
+def get_channel(channels, channel_name):
+    for channel in bot.get_all_channels():
+        if channel.name == channel_name:
+            return channel
+    return None
 
 async def sendMessage(ctx, text):
     idx = 0
@@ -42,7 +57,7 @@ async def sendMessage(ctx, text):
 
 def tableGen(headings, rows):
     s = tabulate(rows, headers=headings)
-    return s
+    return '```{}```'.format(s)
 
 def videoTime2Seconds(time):
     ret = 0
@@ -54,16 +69,16 @@ def videoTime2Seconds(time):
         pass
     return ret
 
-def getRemainAssns():
-    now = datetime.now()
+def getRemainAssns(ecam):
+    now = getKRTime()
 
     notSubmittedAssns = []
     missedAssns = []
 
-    subjs = ecampus.getSubjects()
+    subjs = ecam.getSubjects()
 
     for subj in subjs:
-        assns = ecampus.getAssignments(subj['id'])
+        assns = ecam.getAssignments(subj['id'])
         for assn in assns:
             if assn['submit'] != '제출 완료':
                 duedate = datetime.strptime(assn['duedate'], '%Y-%m-%d %H:%M')
@@ -76,16 +91,16 @@ def getRemainAssns():
     
     return notSubmittedAssns
 
-def getRemainProgs():
-    now = datetime.now()
+def getRemainProgs(ecam):
+    now = getKRTime()
     
     notProgressed = []
     missedProgress = []
 
-    subjs = ecampus.getSubjects()
+    subjs = ecam.getSubjects()
 
     for subj in subjs:
-        progs = ecampus.getProgress(subj['id'])
+        progs = ecam.getProgress(subj['id'])
         for prog in progs:
             acktime, takentime = 0, 0
 
@@ -105,8 +120,29 @@ def getRemainProgs():
     
     return notProgressed
 
-bot = Bot(command_prefix='!')
-bot.remove_command('help')
+def getRemainAssnsStr(ecam):
+    notSubmittedAssns = getRemainAssns(ecam)
+    
+    if len(notSubmittedAssns) == 0:
+        return '**WOW! 제출할 과제가 없네요!**'
+    
+    s = '제출할 과제가 **{}개** 남았습니다!\n'.format(len(notSubmittedAssns))
+
+    notSubmittedAssns.sort(key=lambda x: x[3])
+    s += tableGen(['과목명', '과제명', '남은 시간'], [x[:3] for x in notSubmittedAssns])
+    return s
+
+def getRemainProgsStr(ecam):
+    notProgressed = getRemainProgs(ecam)
+    
+    if len(notProgressed) == 0:
+        return '**WOW! 들을 강의가 없네요!**'
+    
+    s = '수강해야할 강의가 **{}개** 남았습니다!\n'.format(len(notProgressed))
+
+    notProgressed.sort(key=lambda x: x[3])
+    s += tableGen(['과목명', '강의명', '남은 시간'], [x[:3] for x in notProgressed])
+    return s
 
 @bot.event
 async def on_ready():
@@ -182,15 +218,8 @@ async def showAssns(ctx):
     if not ecampus.checkSession():
         return await ctx.send('선택된 유저 정보가 없습니다!')
     
-    notSubmittedAssns = getRemainAssns()
+    s = getRemainAssnsStr(ecampus)
     
-    if len(notSubmittedAssns) == 0:
-        return await ctx.send('**WOW! 제출할 과제가 없네요!**')
-    
-    s = '제출할 과제가 **{}개** 남았습니다!\n'.format(len(notSubmittedAssns))
-
-    notSubmittedAssns.sort(key=lambda x: x[3])
-    s += tableGen(['과목명', '과제명', '남은 시간'], [x[:3] for x in notSubmittedAssns])
     await sendMessage(ctx, s)
 
 @bot.command()
@@ -198,43 +227,16 @@ async def showProgress(ctx):
     if not ecampus.checkSession():
         return await ctx.send('선택된 유저 정보가 없습니다!')
     
-    notProgressed = getRemainProgs()
+    s = getRemainProgsStr(ecampus)
     
-    if len(notProgressed) == 0:
-        return await ctx.send('**WOW! 들을 강의가 없네요!**')
-    
-    s = '수강해야할 강의가 **{}개** 남았습니다!\n'.format(len(notProgressed))
-
-    notProgressed.sort(key=lambda x: x[3])
-    s += tableGen(['과목명', '강의명', '남은 시간'], [x[:3] for x in notProgressed])
     await sendMessage(ctx, s)
 
 @bot.command()
 async def show(ctx):
     if not ecampus.checkSession():
         return await ctx.send('선택된 유저 정보가 없습니다!')
-    
-    notSubmittedAssns = getRemainAssns()
-    notProgressed = getRemainProgs()
 
-    s = ''
-
-    if len(notSubmittedAssns) == 0:
-        s += '**WOW! 제출할 과제가 없네요!**\n\n'
-    else:
-        s += '제출할 과제가 **{}개** 남았습니다!\n'.format(len(notSubmittedAssns))
-
-        notSubmittedAssns.sort(key=lambda x: x[3])
-        s += tableGen(['과목명', '과제명', '남은 시간'], [x[:3] for x in notSubmittedAssns]) + '\n\n'
-    
-    
-    if len(notProgressed) == 0:
-        s += '**WOW! 들을 강의가 없네요!**'
-    else:
-        s += '수강해야할 강의가 **{}개** 남았습니다!\n'.format(len(notProgressed))
-
-        notProgressed.sort(key=lambda x: x[3])
-        s += tableGen(['과목명', '강의명', '남은 시간'], [x[:3] for x in notProgressed])
+    s = getRemainAssnsStr(ecampus) + '\n\n' + getRemainProgsStr(ecampus)
 
     await sendMessage(ctx, s)
 
@@ -258,6 +260,37 @@ async def selectuser(ctx, *args):
         await ctx.send('유저 선택 성공!')
     else:
         await ctx.send('무언가 잘못되었습니다!')
+
+
+alertTimes = set([9, 13, 18])
+async def loop():
+    lastTime = None
+    while True:
+        await asyncio.sleep(60)
+        now = getKRTime()
+        curTime = str(now.day) + str(now.hour)
+        if now.hour in alertTimes and curTime != lastTime:
+            lastTime = str(now.day) + str(now.hour)
+
+            botChannel = get_channel(bot.get_all_channels(), 'e-campus-bot')
+            
+            ecampus2 = ECampus()
+            ss = ''
+            
+            infos = API.getUserInfos()
+            for info in infos:
+                username = info['name']
+                id, pw = API.getUserIDPW(username)
+                ss += '**##### {} #####**\n'.format(username)
+                if not ecampus2.login(id, pw):
+                    ss += '무언가 잘못되었습니다!!'
+                else:
+                    ss += getRemainAssnsStr(ecampus2) + '\n' + getRemainProgsStr(ecampus2)
+                
+                await sendMessage(botChannel, ss)
+
+
+bot.loop.create_task(loop())
 
 DISCORD_KEY = os.getenv("DISCORD_KEY")
 bot.run(DISCORD_KEY)
