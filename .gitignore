@@ -1,3 +1,6 @@
+# Data
+*.csv
+
 # MacOS
 .DS_Store
 .AppleDouble
