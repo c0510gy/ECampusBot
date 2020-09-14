@@ -35,8 +35,6 @@ class ECampus:
   def getSubjects(self):
     html = self.getHTML('http://ecampus.kookmin.ac.kr')
     soup = BeautifulSoup(html, 'html.parser')
-
-    # courseList = soup.find('div', {'class': 'course_lists'})
     
     courseTags = soup.find_all('a', {'class': 'course_link'})
 
@@ -51,7 +49,47 @@ class ECampus:
       courses.append({'title': title, 'prof': prof, 'id': courseid})
     
     return courses
+  
+  def getProgress(self, id):
+    html = self.getHTML('http://ecampus.kookmin.ac.kr/report/ubcompletion/user_progress.php?id=' + id)
+    soup = BeautifulSoup(html, 'html.parser')
 
+    table = soup.find('table', {'class': 'table table-bordered user_progress'})
+
+    rows = table.find('tbody').find_all('tr')
+    prog = []
+    for row in rows:
+      try:
+        title = row.find('td', {'class': 'text-left'}).text.strip()
+        acktime = row.find('td', {'class': 'text-center hidden-xs hidden-sm'}).text.strip()
+        takentime = row.find_all('td', {'class': 'text-center'})[-2].text.strip().split('상세보기')[0]
+        progressPer = row.find_all('td', {'class': 'text-center'})[-1].text.strip()
+
+        prog.append({'title': title, 'acktime': acktime, 'takentime': takentime, 'progressPer': progressPer})
+      except:
+        pass
+    
+    html = self.getHTML('http://ecampus.kookmin.ac.kr/course/view.php?id=' + id)
+    soup = BeautifulSoup(html, 'html.parser')
+
+    totalSection = soup.find('div', {'class': 'total_sections'})
+    searchSpace = totalSection.text
+
+    collisions = dict()
+    for i in range(len(prog)):
+      print(title)
+      th = 1
+      if title in collisions:
+        th = collisions[title] + 1
+      
+      term = searchSpace.split(title + ' 콘텐츠제작도구 \xa0')[th].split(',')[0]
+      duedate = term.split(' ~ ')[1]
+
+      prog[i]['duedate'] = duedate
+
+      collisions[title] = th
+
+    return prog
 
 if __name__ == '__main__':
   load_dotenv()
@@ -62,4 +100,9 @@ if __name__ == '__main__':
   ecampus = ECampus()
   print(ecampus.login(MY_USERNAME, MY_PASSWORD))
 
-  ecampus.getSubjects()
+  subjs = ecampus.getSubjects()
+  prog = ecampus.getProgress(subjs[0]['id'])
+
+  for p in prog:
+    print(p)
+
