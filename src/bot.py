@@ -10,6 +10,26 @@ from datetime import datetime
 import DataSource.api as API
 
 
+HELP = '''\
+**Welecome to the E-Campus Bot, supporter of your university life and tomorrow**
+
+Made by Sang-geon Yun(Elliot Yun - https://github.com/c0510gy)
+
+```
+  !users: 등록된 유저 목록 출력
+  !selectuser username: username을 선택
+  !show: 남은 강의/과제 목록 출력
+  !showAssns: 남은 과제 목록 출력
+  !showProgs: 남은 수강 목록 출력
+  !subjects: 수강중인 과목 출력
+  !progress all: 모든 과목의 강의 출력
+  !progress id: 과목 아이디 id에 대한 강의 출력
+  !assignments all: 모든 과목의 과제 출력
+  !assignments id: 과목 아이디 id에 대한 과제 출력
+```
+'''
+
+
 load_dotenv()
 ecampus = ECampus()
 
@@ -23,6 +43,16 @@ async def sendMessage(ctx, text):
 def tableGen(headings, rows):
     s = tabulate(rows, headers=headings)
     return s
+
+def videoTime2Seconds(time):
+    ret = 0
+    try:
+        sp = time.split(':')
+        for i in range(len(sp)):
+            ret = ret * 60 + int(sp[i])
+    except:
+        pass
+    return ret
 
 def getRemainAssns():
     now = datetime.now()
@@ -59,9 +89,8 @@ def getRemainProgs():
         for prog in progs:
             acktime, takentime = 0, 0
 
-            acktime = int(prog['acktime'].split(':')[0]) * 60 + int(prog['acktime'].split(':')[1])
-            if prog['takentime'].find(':') != -1:
-                takentime = int(prog['takentime'].split(':')[0]) * 60 + int(prog['takentime'].split(':')[1])
+            acktime = videoTime2Seconds(prog['acktime'])
+            takentime = videoTime2Seconds(prog['takentime'])
 
             delta = takentime - acktime
 
@@ -77,6 +106,7 @@ def getRemainProgs():
     return notProgressed
 
 bot = Bot(command_prefix='!')
+bot.remove_command('help')
 
 @bot.event
 async def on_ready():
@@ -85,6 +115,10 @@ async def on_ready():
 @bot.command()
 async def ping(ctx):
     await ctx.send('pong!')
+
+@bot.command()
+async def help(ctx):
+    await ctx.send(HELP)
 
 @bot.command()
 async def subjects(ctx):
