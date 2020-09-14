@@ -62,8 +62,12 @@ class ECampus:
       try:
         title = row.find('td', {'class': 'text-left'}).text.strip()
         acktime = row.find('td', {'class': 'text-center hidden-xs hidden-sm'}).text.strip()
-        takentime = row.find_all('td', {'class': 'text-center'})[-2].text.strip().split('상세보기')[0]
-        progressPer = row.find_all('td', {'class': 'text-center'})[-1].text.strip()
+        tags = row.find_all('td', {'class': 'text-center'})
+        idx = 1
+        if len(tags) >= 4:
+          idx = 2
+        takentime = tags[idx].text.strip().split('상세보기')[0]
+        progressPer = tags[idx + 1].text.strip()
 
         prog.append({'title': title, 'acktime': acktime, 'takentime': takentime, 'progressPer': progressPer})
       except:
@@ -77,11 +81,10 @@ class ECampus:
 
     collisions = dict()
     for i in range(len(prog)):
-      print(title)
+      title = prog[i]['title']
       th = 1
       if title in collisions:
         th = collisions[title] + 1
-      
       term = searchSpace.split(title + ' 콘텐츠제작도구 \xa0')[th].split(',')[0]
       duedate = term.split(' ~ ')[1]
 
@@ -90,6 +93,22 @@ class ECampus:
       collisions[title] = th
 
     return prog
+
+  def getAssignments(self, id):
+    html = self.getHTML('http://ecampus.kookmin.ac.kr/mod/assign/index.php?id=' + id)
+    soup = BeautifulSoup(html, 'html.parser')
+
+    rows = soup.find('tbody').find_all('tr')
+
+    assns = []
+    for row in rows:
+      title = row.find('td', {'class': 'cell c1'}).text.strip()
+      duedate = row.find('td', {'class': 'cell c2'}).text.strip()
+      submit = row.find('td', {'class': 'cell c3'}).text.strip()
+
+      assns.append({'title': title, 'duedate': duedate, 'submit': submit})
+    
+    return assns
 
 if __name__ == '__main__':
   load_dotenv()
@@ -106,3 +125,7 @@ if __name__ == '__main__':
   for p in prog:
     print(p)
 
+  assns = ecampus.getAssignments(subjs[0]['id'])
+
+  for a in assns:
+    print(a)
