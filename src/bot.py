@@ -5,6 +5,8 @@ from ECampusParser.ECampusParser import ECampus
 from dotenv import load_dotenv
 from tabulate import tabulate
 
+from datetime import datetime
+
 import DataSource.api as API
 
 
@@ -21,6 +23,58 @@ async def sendMessage(ctx, text):
 def tableGen(headings, rows):
     s = tabulate(rows, headers=headings)
     return s
+
+def getRemainAssns():
+    now = datetime.now()
+
+    notSubmittedAssns = []
+    missedAssns = []
+
+    subjs = ecampus.getSubjects()
+
+    for subj in subjs:
+        assns = ecampus.getAssignments(subj['id'])
+        for assn in assns:
+            if assn['submit'] != '제출 완료':
+                duedate = datetime.strptime(assn['duedate'], '%Y-%m-%d %H:%M')
+                if duedate < now:
+                    missedAssns.append([subj['title'], assn['title'], assn['duedate']])
+                else:
+                    duedate = duedate - now
+                    due = '{}일 {}시간 {}분 남음'.format(duedate.days, duedate.seconds//3600, (duedate.seconds//60)%60)
+                    notSubmittedAssns.append([subj['title'], assn['title'], due, duedate.total_seconds()])
+    
+    return notSubmittedAssns
+
+def getRemainProgs():
+    now = datetime.now()
+    
+    notProgressed = []
+    missedProgress = []
+
+    subjs = ecampus.getSubjects()
+
+    for subj in subjs:
+        progs = ecampus.getProgress(subj['id'])
+        for prog in progs:
+            acktime, takentime = 0, 0
+
+            acktime = int(prog['acktime'].split(':')[0]) * 60 + int(prog['acktime'].split(':')[1])
+            if prog['takentime'].find(':') != -1:
+                takentime = int(prog['takentime'].split(':')[0]) * 60 + int(prog['takentime'].split(':')[1])
+
+            delta = takentime - acktime
+
+            if delta < 0:
+                duedate = datetime.strptime(prog['duedate'], '%Y-%m-%d %H:%M:%S')
+                if duedate < now:
+                    missedProgress.append([subj['title'], prog['title'], prog['duedate']])
+                else:
+                    duedate = duedate - now
+                    due = '{}일 {}시간 {}분 남음'.format(duedate.days, duedate.seconds//3600, (duedate.seconds//60)%60)
+                    notProgressed.append([subj['title'], prog['title'], due, duedate.total_seconds()])
+    
+    return notProgressed
 
 bot = Bot(command_prefix='!')
 
@@ -87,6 +141,67 @@ async def assignments(ctx, *args):
         assns = ecampus.getAssignments(args[0])
         s = tableGen(['과제명', '과제 제출기한', '제출상황'], [[x['title'], x['duedate'], x['submit']] for x in assns])
     
+    await sendMessage(ctx, s)
+
+@bot.command()
+async def showAssns(ctx):
+    if not ecampus.checkSession():
+        return await ctx.send('선택된 유저 정보가 없습니다!')
+    
+    notSubmittedAssns = getRemainAssns()
+    
+    if len(notSubmittedAssns) == 0:
+        return await ctx.send('**WOW! 제출할 과제가 없네요!**')
+    
+    s = '제출할 과제가 **{}개** 남았습니다!\n'.format(len(notSubmittedAssns))
+
+    notSubmittedAssns.sort(key=lambda x: x[3])
+    s += tableGen(['과목명', '과제명', '남은 시간'], [x[:3] for x in notSubmittedAssns])
+    await sendMessage(ctx, s)
+
+@bot.command()
+async def showProgress(ctx):
+    if not ecampus.checkSession():
+        return await ctx.send('선택된 유저 정보가 없습니다!')
+    
+    notProgressed = getRemainProgs()
+    
+    if len(notProgressed) == 0:
+        return await ctx.send('**WOW! 들을 강의가 없네요!**')
+    
+    s = '수강해야할 강의가 **{}개** 남았습니다!\n'.format(len(notProgressed))
+
+    notProgressed.sort(key=lambda x: x[3])
+    s += tableGen(['과목명', '강의명', '남은 시간'], [x[:3] for x in notProgressed])
+    await sendMessage(ctx, s)
+
+@bot.command()
+async def show(ctx):
+    if not ecampus.checkSession():
+        return await ctx.send('선택된 유저 정보가 없습니다!')
+    
+    notSubmittedAssns = getRemainAssns()
+    notProgressed = getRemainProgs()
+
+    s = ''
+
+    if len(notSubmittedAssns) == 0:
+        s += '**WOW! 제출할 과제가 없네요!**\n\n'
+    else:
+        s += '제출할 과제가 **{}개** 남았습니다!\n'.format(len(notSubmittedAssns))
+
+        notSubmittedAssns.sort(key=lambda x: x[3])
+        s += tableGen(['과목명', '과제명', '남은 시간'], [x[:3] for x in notSubmittedAssns]) + '\n\n'
+    
+    
+    if len(notProgressed) == 0:
+        s += '**WOW! 들을 강의가 없네요!**'
+    else:
+        s += '수강해야할 강의가 **{}개** 남았습니다!\n'.format(len(notProgressed))
+
+        notProgressed.sort(key=lambda x: x[3])
+        s += tableGen(['과목명', '강의명', '남은 시간'], [x[:3] for x in notProgressed])
+
     await sendMessage(ctx, s)
 
 @bot.command()
