@@ -54,43 +54,47 @@ class ECampus:
     html = self.getHTML('http://ecampus.kookmin.ac.kr/report/ubcompletion/user_progress.php?id=' + id)
     soup = BeautifulSoup(html, 'html.parser')
 
-    table = soup.find('table', {'class': 'table table-bordered user_progress'})
-
-    rows = table.find('tbody').find_all('tr')
     prog = []
-    for row in rows:
-      try:
-        title = row.find('td', {'class': 'text-left'}).text.strip()
-        acktime = row.find('td', {'class': 'text-center hidden-xs hidden-sm'}).text.strip()
-        tags = row.find_all('td', {'class': 'text-center'})
-        idx = 1
-        if len(tags) >= 4:
-          idx = 2
-        takentime = tags[idx].text.strip().split('상세보기')[0]
-        progressPer = tags[idx + 1].text.strip()
 
-        prog.append({'title': title, 'acktime': acktime, 'takentime': takentime, 'progressPer': progressPer})
-      except:
-        pass
-    
-    html = self.getHTML('http://ecampus.kookmin.ac.kr/course/view.php?id=' + id)
-    soup = BeautifulSoup(html, 'html.parser')
+    try:
+      table = soup.find('table', {'class': 'table table-bordered user_progress'})
 
-    totalSection = soup.find('div', {'class': 'total_sections'})
-    searchSpace = totalSection.text
+      rows = table.find('tbody').find_all('tr')
+      for row in rows:
+        try:
+          title = row.find('td', {'class': 'text-left'}).text.strip()
+          acktime = row.find('td', {'class': 'text-center hidden-xs hidden-sm'}).text.strip()
+          tags = row.find_all('td', {'class': 'text-center'})
+          idx = 1
+          if len(tags) >= 4:
+            idx = 2
+          takentime = tags[idx].text.strip().split('상세보기')[0]
+          progressPer = tags[idx + 1].text.strip()
 
-    collisions = dict()
-    for i in range(len(prog)):
-      title = prog[i]['title']
-      th = 1
-      if title in collisions:
-        th = collisions[title] + 1
-      term = searchSpace.split(title + ' 콘텐츠제작도구 \xa0')[th].split(',')[0]
-      duedate = term.split(' ~ ')[1]
+          prog.append({'title': title, 'acktime': acktime, 'takentime': takentime, 'progressPer': progressPer})
+        except:
+          pass
+      
+      html = self.getHTML('http://ecampus.kookmin.ac.kr/course/view.php?id=' + id)
+      soup = BeautifulSoup(html, 'html.parser')
 
-      prog[i]['duedate'] = duedate
+      totalSection = soup.find('div', {'class': 'total_sections'})
+      searchSpace = totalSection.text
 
-      collisions[title] = th
+      collisions = dict()
+      for i in range(len(prog)):
+        title = prog[i]['title']
+        th = 1
+        if title in collisions:
+          th = collisions[title] + 1
+        term = searchSpace.split(title + ' 콘텐츠제작도구 \xa0')[th].split(',')[0]
+        duedate = term.split(' ~ ')[1]
+
+        prog[i]['duedate'] = duedate
+
+        collisions[title] = th
+    except:
+      pass
 
     return prog
 
@@ -98,15 +102,26 @@ class ECampus:
     html = self.getHTML('http://ecampus.kookmin.ac.kr/mod/assign/index.php?id=' + id)
     soup = BeautifulSoup(html, 'html.parser')
 
-    rows = soup.find('tbody').find_all('tr')
-
     assns = []
-    for row in rows:
-      title = row.find('td', {'class': 'cell c1'}).text.strip()
-      duedate = row.find('td', {'class': 'cell c2'}).text.strip()
-      submit = row.find('td', {'class': 'cell c3'}).text.strip()
 
-      assns.append({'title': title, 'duedate': duedate, 'submit': submit})
+    try:
+      rows = soup.find('tbody').find_all('tr')
+
+      cell1s = soup.find_all('td', {'class': 'cell c1'})
+      cell2s = soup.find_all('td', {'class': 'cell c2'})
+      cell3s = soup.find_all('td', {'class': 'cell c3'})
+
+      for i in range(len(cell1s)):
+        try:
+          title = cell1s[i].text.strip()
+          duedate = cell2s[i].text.strip()
+          submit = cell3s[i].text.strip()
+
+          assns.append({'title': title, 'duedate': duedate, 'submit': submit})
+        except:
+          pass
+    except:
+      pass
     
     return assns
 
@@ -120,12 +135,18 @@ if __name__ == '__main__':
   print(ecampus.login(MY_USERNAME, MY_PASSWORD))
 
   subjs = ecampus.getSubjects()
-  prog = ecampus.getProgress(subjs[0]['id'])
 
-  for p in prog:
-    print(p)
+  print(subjs)
 
-  assns = ecampus.getAssignments(subjs[0]['id'])
+  for subj in subjs:
+    print('### ' + subj['title'] + ' ###')
+    prog = ecampus.getProgress(subj['id'])
 
-  for a in assns:
-    print(a)
+    for p in prog:
+      print(p)
+
+
+    assns = ecampus.getAssignments(subj['id'])
+
+    for a in assns:
+      print(a)
