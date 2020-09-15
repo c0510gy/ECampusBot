@@ -308,7 +308,10 @@ alertTimes = set([9, 13, 18])
 async def loop():
     lastTime = None
     getFnished()
-    botChannel = get_channel(bot.get_all_channels(), 'e-campus-bot')
+    botChannel = None
+    while botChannel is None:
+        await asyncio.sleep(5)
+        botChannel = get_channel(bot.get_all_channels(), 'e-campus-bot')
     while True:
         await asyncio.sleep(60)
 
