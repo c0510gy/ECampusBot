@@ -261,27 +261,71 @@ async def selectuser(ctx, *args):
     else:
         await ctx.send('무언가 잘못되었습니다!')
 
+finishedAssns = dict()
+
+def getFnished():
+    ecampus2 = ECampus()
+    
+    infos = API.getUserInfos()
+    for info in infos:
+        username = info['name']
+        id, pw = API.getUserIDPW(username)
+        if not ecampus2.login(id, pw):
+            continue
+        
+        finishedAssns[username] = set()
+
+        subjs = ecampus2.getSubjects()
+        for subj in subjs:
+            assns = ecampus2.getAssignments(subj['id'])
+
+            for assn in assns:
+                if assn['submit'] == '제출 완료':
+                    finishedAssns[username].add(assn['id'])
+
+async def manageDiff(botChannel):
+    ecampus2 = ECampus()
+    
+    infos = API.getUserInfos()
+    for info in infos:
+        username = info['name']
+        id, pw = API.getUserIDPW(username)
+        if not ecampus2.login(id, pw):
+            continue
+        subjs = ecampus2.getSubjects()
+        for subj in subjects:
+            assns = ecampus2.getAssignments(subj['id'])
+
+            for assn in assns:
+                if assn['submit'] == '제출 완료':
+                    if not assn['id'] in finishedAssns[username]:
+                        finishedAssns[username].add(assn['id'])
+
+                        ss = '**WOW!** **{}**님이 **{}**과목의 과제 **{}**를 제출 완료했습니다!'.format(username, subj['title'], assn['title'])
+                        await sendMessage(botChannel, ss)
 
 alertTimes = set([9, 13, 18])
 async def loop():
     lastTime = None
+    getFnished()
+    botChannel = get_channel(bot.get_all_channels(), 'e-campus-bot')
     while True:
         await asyncio.sleep(60)
+
+        await manageDiff(botChannel)
+
         now = getKRTime()
         curTime = str(now.day) + str(now.hour)
         if now.hour in alertTimes and curTime != lastTime:
             lastTime = str(now.day) + str(now.hour)
-
-            botChannel = get_channel(bot.get_all_channels(), 'e-campus-bot')
             
             ecampus2 = ECampus()
-            ss = ''
             
             infos = API.getUserInfos()
             for info in infos:
                 username = info['name']
                 id, pw = API.getUserIDPW(username)
-                ss += '**##### {} #####**\n'.format(username)
+                ss = '**##### {} #####**\n'.format(username)
                 if not ecampus2.login(id, pw):
                     ss += '무언가 잘못되었습니다!!'
                 else:

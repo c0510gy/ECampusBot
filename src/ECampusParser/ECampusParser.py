@@ -116,8 +116,9 @@ class ECampus:
           title = cell1s[i].text.strip()
           duedate = cell2s[i].text.strip()
           submit = cell3s[i].text.strip()
+          assnId = cell1s[i].find('a').get('href').split('id=')[1]
 
-          assns.append({'title': title, 'duedate': duedate, 'submit': submit})
+          assns.append({'title': title, 'duedate': duedate, 'submit': submit, 'id': assnId})
         except:
           pass
     except:
