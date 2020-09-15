@@ -332,7 +332,7 @@ async def loop():
         await asyncio.sleep(5)
         botChannel = get_channel(bot.get_all_channels(), 'e-campus-bot')
     while True:
-        await asyncio.sleep(60)
+        await asyncio.sleep(60 * 10)
 
         await manageDiff(botChannel)
 
