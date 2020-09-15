@@ -1,4 +1,5 @@
 from discord.ext.commands import Bot
+import discord
 
 import os
 from ECampusParser.ECampusParser import ECampus
@@ -81,6 +82,8 @@ def getRemainAssns(ecam):
         assns = ecam.getAssignments(subj['id'])
         for assn in assns:
             if assn['submit'] != '제출 완료':
+                if not 'duedate' in assn:
+                    continue
                 duedate = datetime.strptime(assn['duedate'], '%Y-%m-%d %H:%M')
                 if duedate < now:
                     missedAssns.append([subj['title'], assn['title'], assn['duedate']])
@@ -110,6 +113,8 @@ def getRemainProgs(ecam):
             delta = takentime - acktime
 
             if delta < 0:
+                if not 'duedate' in prog:
+                    continue
                 duedate = datetime.strptime(prog['duedate'], '%Y-%m-%d %H:%M:%S')
                 if duedate < now:
                     missedProgress.append([subj['title'], prog['title'], prog['duedate']])
@@ -129,6 +134,8 @@ def getRemainAssnsStr(ecam):
     s = '제출할 과제가 **{}개** 남았습니다!\n'.format(len(notSubmittedAssns))
 
     notSubmittedAssns.sort(key=lambda x: x[3])
+    if len(notSubmittedAssns) > 20:
+        notSubmittedAssns = notSubmittedAssns[:20]
     s += tableGen(['과목명', '과제명', '남은 시간'], [x[:3] for x in notSubmittedAssns])
     return s
 
@@ -141,6 +148,8 @@ def getRemainProgsStr(ecam):
     s = '수강해야할 강의가 **{}개** 남았습니다!\n'.format(len(notProgressed))
 
     notProgressed.sort(key=lambda x: x[3])
+    if len(notProgressed) > 20:
+        notProgressed = notProgressed[:20]
     s += tableGen(['과목명', '강의명', '남은 시간'], [x[:3] for x in notProgressed])
     return s
 
@@ -263,7 +272,7 @@ async def selectuser(ctx, *args):
 
 finishedAssns = dict()
 
-def getFnished():
+async def getFnished():
     ecampus2 = ECampus()
     
     infos = API.getUserInfos()
@@ -282,6 +291,8 @@ def getFnished():
             for assn in assns:
                 if assn['submit'] == '제출 완료':
                     finishedAssns[username].add(assn['id'])
+        
+        await asyncio.sleep(1)
 
 async def manageDiff(botChannel):
     ecampus2 = ECampus()
@@ -301,13 +312,21 @@ async def manageDiff(botChannel):
                     if not assn['id'] in finishedAssns[username]:
                         finishedAssns[username].add(assn['id'])
 
-                        ss = '**WOW!** **{}**님이 **{}**과목의 과제 **{}**를 제출 완료했습니다!'.format(username, subj['title'], assn['title'])
-                        await sendMessage(botChannel, ss)
+                        ss = '**WOW!** **{}**님이 과제 제출을 완료했습니다!'.format(username)
+
+                        embedVar = discord.Embed(title="과제 제출 완료!", description=ss, color=0x00ff00)
+                        embedVar.add_field(name="과목명", value=subj['title'], inline=False)
+                        embedVar.add_field(name="과제명", value=assn['title'], inline=False)
+                        embedVar.add_field(name="마감기한", value=assn['duedate'], inline=False)
+                        
+                        await botChannel.send(embed=embedVar)
+                        #await sendMessage(botChannel, ss)
+        await asyncio.sleep(1)
 
 alertTimes = set([9, 13, 18])
 async def loop():
     lastTime = None
-    getFnished()
+    await getFnished()
     botChannel = None
     while botChannel is None:
         await asyncio.sleep(5)
@@ -328,14 +347,19 @@ async def loop():
             for info in infos:
                 username = info['name']
                 id, pw = API.getUserIDPW(username)
-                ss = '**##### {} #####**\n'.format(username)
+                ss = ''
                 if not ecampus2.login(id, pw):
                     ss += '무언가 잘못되었습니다!!'
                 else:
                     ss += getRemainAssnsStr(ecampus2) + '\n' + getRemainProgsStr(ecampus2)
                 
-                await sendMessage(botChannel, ss)
+                embedVar = discord.Embed(title="{}의 과제 및 수강 현황".format(username), description=ss, color=0x800080)
+                #embedVar.add_field(name="과제 제출 상황", value=getRemainAssnsStr(ecampus2), inline=False)
+                #embedVar.add_field(name="강의 수강 상황", value=getRemainProgsStr(ecampus2), inline=False)
+                await botChannel.send(embed=embedVar)
+                #await sendMessage(botChannel, ss)
 
+            await asyncio.sleep(1)
 
 bot.loop.create_task(loop())
 

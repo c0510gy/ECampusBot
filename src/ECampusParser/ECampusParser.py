@@ -87,10 +87,12 @@ class ECampus:
         th = 1
         if title in collisions:
           th = collisions[title] + 1
-        term = searchSpace.split(title + ' 콘텐츠제작도구 \xa0')[th].split(',')[0]
-        duedate = term.split(' ~ ')[1]
+        term = searchSpace.split(title + ' 콘텐츠제작도구 \xa0')
+        if len(term) > th:
+          term = term[th].split(',')[0]
+          duedate = term.split(' ~ ')[1]
 
-        prog[i]['duedate'] = duedate
+          prog[i]['duedate'] = duedate
 
         collisions[title] = th
     except:

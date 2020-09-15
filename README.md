@@ -1,7 +1,8 @@
 # ECampusBot
 Discord bot for reminding due dates of assignments
 
-<img src="./images/result.png"/>
+<img src="./images/result2.png"/>
+<img src="./images/result3.png"/>
 
 ## Adding user
 
