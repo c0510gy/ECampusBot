@@ -293,7 +293,7 @@ async def manageDiff(botChannel):
         if not ecampus2.login(id, pw):
             continue
         subjs = ecampus2.getSubjects()
-        for subj in subjects:
+        for subj in subjs:
             assns = ecampus2.getAssignments(subj['id'])
 
             for assn in assns:
