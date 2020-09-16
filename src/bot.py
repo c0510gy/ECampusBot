@@ -334,33 +334,37 @@ async def loop():
     while True:
         await asyncio.sleep(60 * 10)
 
-        await manageDiff(botChannel)
+        try:
+            await manageDiff(botChannel)
 
-        now = getKRTime()
-        curTime = str(now.day) + str(now.hour)
-        if now.hour in alertTimes and curTime != lastTime:
-            lastTime = str(now.day) + str(now.hour)
-            
-            ecampus2 = ECampus()
-            
-            infos = API.getUserInfos()
-            for info in infos:
-                username = info['name']
-                id, pw = API.getUserIDPW(username)
-                ss = ''
-                if not ecampus2.login(id, pw):
-                    ss += '무언가 잘못되었습니다!!'
-                else:
-                    ss += getRemainAssnsStr(ecampus2) + '\n' + getRemainProgsStr(ecampus2)
+            now = getKRTime()
+            curTime = str(now.day) + str(now.hour)
+            if now.hour in alertTimes and curTime != lastTime:
+                lastTime = str(now.day) + str(now.hour)
                 
-                embedVar = discord.Embed(title="{}의 과제 및 수강 현황".format(username), description=ss, color=0x800080)
-                #embedVar.add_field(name="과제 제출 상황", value=getRemainAssnsStr(ecampus2), inline=False)
-                #embedVar.add_field(name="강의 수강 상황", value=getRemainProgsStr(ecampus2), inline=False)
-                await botChannel.send(embed=embedVar)
-                #await sendMessage(botChannel, ss)
+                ecampus2 = ECampus()
+                
+                infos = API.getUserInfos()
+                for info in infos:
+                    username = info['name']
+                    id, pw = API.getUserIDPW(username)
+                    ss = ''
+                    if not ecampus2.login(id, pw):
+                        ss += '무언가 잘못되었습니다!!'
+                    else:
+                        ss += getRemainAssnsStr(ecampus2) + '\n' + getRemainProgsStr(ecampus2)
+                    
+                    embedVar = discord.Embed(title="{}의 과제 및 수강 현황".format(username), description=ss, color=0x800080)
+                    #embedVar.add_field(name="과제 제출 상황", value=getRemainAssnsStr(ecampus2), inline=False)
+                    #embedVar.add_field(name="강의 수강 상황", value=getRemainProgsStr(ecampus2), inline=False)
+                    await botChannel.send(embed=embedVar)
+                    #await sendMessage(botChannel, ss)
 
-            await asyncio.sleep(1)
-
+                await asyncio.sleep(1)
+        except Exception as e:
+            embedVar = discord.Embed(title="오류 발생", description=str(e), color=0xFF0000)
+            await botChannel.send(embed=embedVar)
+        
 bot.loop.create_task(loop())
 
 DISCORD_KEY = os.getenv("DISCORD_KEY")
