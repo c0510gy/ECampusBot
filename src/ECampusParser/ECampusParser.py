@@ -11,7 +11,8 @@ class ECampus:
     self.sess = requests.Session()
   
   def getHTML(self, uri):
-    req = self.sess.get(uri)
+    headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_16_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36'}
+    req = self.sess.get(uri, headers=headers)
     html = req.text
     return html
   
@@ -41,6 +42,8 @@ class ECampus:
     courses = []
     
     for tag in courseTags:
+      if tag.find(attrs={'class': 'label label-course'}).text != "교과":
+        continue
       title = tag.find('h3').text
       if title[-3:] == 'NEW':
         title = title[:-3]
