@@ -145,7 +145,7 @@ def getRemainProgsStr(ecam):
     if len(notProgressed) == 0:
         return '**WOW! 들을 강의가 없네요!**'
     
-    s = '수강해야할 강의가 **{}개** 남았습니다!\n'.format(len(notProgressed))
+    s = '수강해야 할 강의가 **{}개** 남았습니다!\n'.format(len(notProgressed))
 
     notProgressed.sort(key=lambda x: x[3])
     if len(notProgressed) > 20:
